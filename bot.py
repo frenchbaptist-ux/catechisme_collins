@@ -15,7 +15,7 @@ def load_data():
     with open(file_name, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-# On charge les données une seule fois au lancement
+# On charge les données au lancement
 try:
     data = load_data()
     print("Données du catéchisme chargées avec succès.")
@@ -53,17 +53,17 @@ def handle_message(message):
             elif q.strip().startswith(question_id):
                 clean_q = q.split(question_id, 1)[-1].strip()
 
-            # Construction du message selon ton format souhaité
+            # Structure demandée :
             # {ID}. {Question} en gras
             # Double saut de ligne
-            # Réponse : en gras suivi du texte
-            response_text = f"<b>{question_id}. {clean_q}</b>\n\n<b>Réponse :</b>\n{r}"
+            # {Réponse} en texte normal
+            response_text = f"<b>{question_id}. {clean_q}</b>\n\n{r}"
             
             bot.reply_to(message, response_text, parse_mode="HTML")
         else:
             bot.reply_to(message, "Désolé, cette question n'existe pas (choisissez entre 1 et 149).")
 
-# Lancement du bot avec gestion des erreurs de connexion (Conflict 409)
+# Lancement du bot
 if __name__ == "__main__":
     print("Le bot est en ligne...")
     try:
