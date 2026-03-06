@@ -1,73 +1,47 @@
 import telebot
 import json
 import os
-from flask import Flask
-from threading import Thread
 
-# 1. Configuration du Token
-TOKEN = os.environ.get('BOT_TOKEN')
+# Remplace par ton vrai Token
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# 2. Mini-serveur Flask pour Render (Évite le mode veille)
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot Collins Orthodoxe est en ligne !"
-
-def run_flask():
-    # Render utilise la variable PORT
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-# 3. Logique du bot (Chargement de collins.json)
+# Chargement du catéchisme
 def load_data():
-    base_path = os.path.dirname(__file__)
-    file_path = os.path.join(base_path, 'collins.json')
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open('catechisme.json', 'r', encoding='utf-8') as f:
         return json.load(f)
 
+data = load_data()
+
 @bot.message_handler(func=lambda message: True)
-def handle_smart_response(message):
-    if not message.text:
-        return
-    
+def handle_message(message):
     text = message.text.strip()
-    # On définit le nom du bot pour les groupes
+    chat_type = message.chat.type  # 'private', 'group' ou 'supergroup'
     bot_username = "@CollinsOrthodoxe_bot"
-    is_private = message.chat.type == 'private'
-    
-    raw_num = ""
 
-    # CAS A : En privé -> Chiffre pur (ex: "1")
-    if is_private:
-        raw_num = text.replace("/", "").strip()
-    
-    # CAS B : En groupe -> Mention obligatoire (ex: "@CollinsOrthodoxe_bot 1")
-    elif bot_username in text:
-        raw_num = text.replace(bot_username, "").replace("/", "").strip()
-    
-    # CAS C : En groupe sans mention -> Silence
+    question_id = None
+
+    if chat_type == 'private':
+        # En privé : on accepte le chiffre direct
+        if text.isdigit():
+            question_id = text
     else:
-        return
+        # En groupe : on vérifie si le message commence par l'arobase du bot
+        if text.startswith(bot_username):
+            # On extrait ce qui vient après l'arobase
+            parts = text.split()
+            if len(parts) > 1 and parts[1].isdigit():
+                question_id = parts[1]
 
-    # Envoi de la réponse si c'est un numéro valide
-    if raw_num.isdigit():
-        try:
-            data = load_data()
-            if raw_num in data:
-                question = data[raw_num]["question"]
-                reponse = data[raw_num]["reponse"]
-                # Mise en forme
-                texte_final = f"*{raw_num}. {question}*\n\n{reponse}"
-                bot.send_message(message.chat.id, texte_final, parse_mode='Markdown')
-        except Exception as e:
-            print(f"Erreur lecture JSON : {e}")
+    # Si on a trouvé un ID valide, on cherche la réponse
+    if question_id:
+        if question_id in data:
+            q = data[question_id]["question"]
+            r = data[question_id]["reponse"]
+            response_text = f"<b>Question {question_id} :</b>\n{q}\n\n<b>Réponse :</b>\n{r}"
+            bot.reply_to(message, response_text, parse_mode="HTML")
+        else:
+            bot.reply_to(message, "Désolé, cette question n'existe pas (choisissez entre 1 et 149).")
 
-# 4. Lancement simultané
-if __name__ == "__main__":
-    t = Thread(target=run_flask)
-    t.start()
-    
-    print("Démarrage du bot Collins Orthodoxe...")
-    bot.infinity_polling()
+print("Le bot est en ligne...")
+bot.infinity_polling()
