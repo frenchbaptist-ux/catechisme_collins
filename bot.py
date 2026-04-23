@@ -1,70 +1,36 @@
 import telebot
 import json
 import os
+from flask import Flask # <--- AJOUTÉ
+from threading import Thread # <--- AJOUTÉ
 
-# Récupération du Token depuis les variables d'environnement Render
+# --- PARTIE FLASK POUR RENDER & UPTIMEROBOT ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot Catechisme en ligne !", 200
+
+def run():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# ----------------------------------------------
+
+# Récupération du Token
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# Chargement du fichier catechisme.json
-def load_data():
-    file_name = 'catechisme.json' 
-    if not os.path.exists(file_name):
-        print(f"Erreur : Le fichier {file_name} est introuvable.")
-        return {}
-    with open(file_name, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-# On charge les données au lancement
-try:
-    data = load_data()
-    print("Données du catéchisme chargées avec succès.")
-except Exception as e:
-    print(f"Erreur lors de la lecture du fichier JSON : {e}")
-    data = {}
-
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    text = message.text.strip()
-    chat_type = message.chat.type
-    bot_username = "@CollinsOrthodoxe_bot"
-    question_id = None
-
-    # 1. Logique de détection : Privé (chiffre seul) vs Groupe (@nom + chiffre)
-    if chat_type == 'private':
-        if text.isdigit():
-            question_id = text
-    else:
-        if text.startswith(bot_username):
-            parts = text.split()
-            if len(parts) > 1 and parts[1].isdigit():
-                question_id = parts[1]
-
-    # 2. Formatage et envoi de la réponse
-    if question_id:
-        if question_id in data:
-            q = data[question_id]["question"]
-            r = data[question_id]["reponse"]
-            
-            # Nettoyage de la question pour éviter les doublons de numérotation
-            clean_q = q
-            if q.strip().startswith(f"{question_id}."):
-                clean_q = q.split(".", 1)[-1].strip()
-            elif q.strip().startswith(question_id):
-                clean_q = q.split(question_id, 1)[-1].strip()
-
-            # Structure demandée :
-            # {ID}. {Question} en gras
-            # Double saut de ligne
-            # {Réponse} en texte normal
-            response_text = f"<b>{question_id}. {clean_q}</b>\n\n{r}"
-            
-            bot.reply_to(message, response_text, parse_mode="HTML")
-        else:
-            bot.reply_to(message, "Désolé, cette question n'existe pas (choisissez entre 1 et 149).")
+# ... (Garde ton code load_data() et handle_message() ici, ils sont parfaits) ...
 
 # Lancement du bot
 if __name__ == "__main__":
+    print("Démarrage du serveur Flask...")
+    keep_alive() # <--- LANCE LE SERVEUR WEB
+    
     print("Le bot est en ligne...")
     try:
         bot.infinity_polling(timeout=10, long_polling_timeout=5)
